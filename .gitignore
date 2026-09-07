@@ -81,3 +81,34 @@ build/
 *.tmp
 *.bak
 *.swp
+
+# ---------- Project: music pipeline ----------
+# Audio files are temporary and must NOT enter git.
+data/ncm/
+data/mp3/
+data/raw/weekly_top100/
+
+# Audio preprocessing caches
+*.wav
+*.flac
+*.m4a
+*.aac
+*.ogg
+
+# Embedding model weights (downloaded separately, large)
+data/embeddings/weights/
+data/embeddings/cache/
+*.onnx
+*.pt
+*.pth
+*.bin
+*.h5
+
+# NeteaseCloudMusicApi local backend
+data-pipeline/api/
+data-pipeline/node_modules/
+
+# Allow-list: keep small derived artifacts even though parent dir is ignored
+!data/embeddings/song_vectors.csv
+!data/embeddings/song_metadata.csv
+!data/raw/songs_catalog.json
