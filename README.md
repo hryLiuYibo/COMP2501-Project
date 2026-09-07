@@ -11,7 +11,7 @@ A data-science analysis of how Chinese music listeners' tastes have evolved over
 - **Single platform, weekly snapshots** — NetEase Cloud Music `热歌榜`, top 100, weekly cadence, target range **2020–2025**.
 - **Audio → vector** using a pretrained music-embedding model (Jukemir / MusicNN / CLAP under evaluation) — *no model is trained from scratch.*
 - **Analysis stack** is R (`tidyverse`, `ggplot2`, plus clustering/PCA later in the course). Python is only used for scraping and audio preprocessing.
-- **Local-only mp3 handling** — `.ncm` files are downloaded, converted to `.mp3` on your machine via the local `Ncm转mp3拖一拖.exe` GUI, used to extract features, then deleted. Nothing is redistributed.
+- **Local-only mp3 handling** — `.ncm` files are downloaded, converted to `.mp3` locally via the CLI tool [`ncmdump`](https://github.com/anonymous5l/ncmdump) (configured through `data-pipeline/convert_ncm_to_mp3.py`), used to extract features, then deleted. Nothing is redistributed. The repo no longer relies on a GUI drag-drop `.exe`.
 
 ---
 
@@ -75,8 +75,7 @@ Historical snapshots are captured by polling the live chart retroactively. Since
 ```
 [1] fetch_weekly_top100.py   →  data/raw/weekly_top100/YYYY-WW.json
 [2] download_ncm.py          →  data/ncm/{song_id}.ncm
-[3] (manual) drag .ncm files into Ncm转mp3拖一拖.exe
-                              →  data/mp3/{song_id}.mp3
+[3] convert_ncm_to_mp3.py    →  data/mp3/{song_id}.mp3   (CLI; ncmdump backend)
 [4] embed_audio.py           →  data/embeddings/song_vectors.csv
 [5] delete .mp3 (keep embeddings only)
 ```

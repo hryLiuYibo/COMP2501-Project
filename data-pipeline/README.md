@@ -7,6 +7,7 @@
 | 脚本 | 作用 | 状态 |
 | --- | --- | --- |
 | `fetch_weekly_top100.py` | 抓网易云热歌榜 Top 100，按周保存 JSON | 骨架已写，待接入真实 API |
+| `convert_ncm_to_mp3.py` | 把 `.ncm` 批量转成 `.mp3`，抽象 `NcmConverter` 接口，可换后端 | 骨架已写，待选定 CLI 后端 |
 
 ## 即将加入
 
@@ -26,6 +27,8 @@ pip install requests
 
 ## 用法示例
 
+### 抓榜单
+
 ```bash
 python fetch_weekly_top100.py \
     --start 2020-W01 \
@@ -36,6 +39,25 @@ python fetch_weekly_top100.py \
 
 - 已存在的快照会被跳过（断点续跑）
 - 失败不中断整轮，按周记录
+
+### ncm → mp3 转换
+
+```bash
+# 默认后端：ncmdump.exe（从 https://github.com/anonymous5l/ncmdump/releases 下载）
+python convert_ncm_to_mp3.py \
+    --src ../data/ncm \
+    --dst ../data/mp3 \
+    --backend ncmdump \
+    --exe path/to/ncmdump.exe
+
+# 或者用 pip 装的 Python wrapper（待核实 API）
+python convert_ncm_to_mp3.py \
+    --src ../data/ncm \
+    --dst ../data/mp3 \
+    --backend ncmdump-py
+```
+
+抽象类 `NcmConverter` 在脚本内，新后端加一个子类即可接入。
 
 ## 数据落盘约定
 

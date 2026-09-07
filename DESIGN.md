@@ -20,10 +20,8 @@
 └─────────────────────────────────────────────────────────────┘
 
 Step 1  ──►  Step 2  ──►  Step 3  ──►  Step 4  ──►  Step 5
-抓榜单     下载 ncm     本地转 mp3    抽向量     清理 mp3
-Python     Python      手动 GUI     Python     shell
-                   (Ncm转mp3
-                    拖一拖.exe)
+抓榜单     下载 ncm     转 mp3 (CLI)    抽向量     清理 mp3
+Python     Python      Python        Python     shell
 
 最终交付：data/embeddings/song_vectors.csv  (song_id × vector)
         data/raw/weekly_top100/*.json       (榜单元数据)
@@ -174,10 +172,30 @@ def main(start: str, end: str, top: int, out_dir: Path):
 
 ---
 
-## 6. Step 3：本地 ncm → mp3 转换（手动）
+## 6. Step 3：本地 ncm → mp3 转换（CLI 自动化）
 
-- **为什么手动**：你的工具 [Ncm转mp3拖一拖.exe](Ncm转mp3拖一拖.exe) 是 GUI 拖拽式，不接受命令行参数，无法被脚本自动调用
-- **怎么手动**：每次把 `data/ncm/` 里的 .ncm 全部拖到 .exe 上，让它输出到 `data/mp3/`
+- **不用 GUI 拖拽**：仓库里曾经放着的 `Ncm转mp3拖一拖.exe`（后改名为 `Trans.exe`）是 GUI 拖拽工具，不接受命令行参数，无法被脚本自动调用，所以**移出流水线**
+- **改用 CLI 工具**：通过 `data-pipeline/convert_ncm_to_mp3.py` 调用社区 CLI 后端
+- **当前候选后端**（网络恢复后定）：
+  - [ncmdump](https://github.com/anonymous5l/ncmdump)（Go，单文件 exe，速度快）
+  - [ncmdump-py](https://github.com/giant-app/ncmdump-py)（`pip install`，Python wrapper）
+- **抽象层设计**：`convert_ncm_to_mp3.py` 里定义了 `NcmConverter` 抽象基类，每个后端是一个子类。换后端只改一处
+- **使用**：
+
+```bash
+# 后端 1：ncmdump.exe（推荐，速度快）
+python convert_ncm_to_mp3.py \
+    --src data/ncm --dst data/mp3 \
+    --backend ncmdump --exe path/to/ncmdump.exe
+
+# 后端 2：ncmdump-py
+python convert_ncm_to_mp3.py \
+    --src data/ncm --dst data/mp3 \
+    --backend ncmdump-py
+```
+
+- **断点续跑**：已存在的 `.mp3` 自动跳过，删除对应文件即可重转
+- **批量转换耗时**：取决于后端，ncmdump 通常 1-3 秒/首
 - **未来自动化选项**：写一个 .NET / Python 调用 [ncmdump](https://github.com/anonymous5l/ncmdump) 或类似开源 CLI 工具替代 GUI（如果时间允许）
 
 ---
@@ -244,7 +262,7 @@ analysis/
 | W1 末 | 验证 mp3 → embedding 跑通（30 分钟 spike） | 待定 | ⏳ 待网络 |
 | W2 | 网易云榜单爬取脚本（Step 1） | 待定 | ⏳ 待网络 |
 | W3 | Step 1 跑完，拿到所有榜单 JSON | 待定 | — |
-| W3-W4 | Step 2-3：下载 + 转 mp3（手动） | 待定 | — |
+| W3-W4 | Step 2-3：下载 + 转 mp3（CLI 自动化） | 待定 | — |
 | W4 | Step 4：mp3 → 向量（批量） | 待定 | — |
 | W5 | R 端 EDA + 降维 | 待定 | — |
 | W6 | R 端聚类 + 时序分析 | 待定 | — |
