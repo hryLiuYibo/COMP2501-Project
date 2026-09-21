@@ -91,6 +91,9 @@ data/raw/weekly_top100/
 *.m4a
 *.aac
 *.ogg
+*.mp3
+*.ncm
+*.lrc
 
 # Model weights / embedding-model caches (no Python embedder in this project
 # anymore, but keep the rule in case a future contributor adds one)
@@ -115,4 +118,4 @@ data/embeddings/cache/
 !data/embeddings/song_features.csv
 !data/embeddings/song_features_failures.csv
 !data/embeddings/all_snapshots.rds
-!data/raw/songs_catalog.json
+!data/songs_catalog.json

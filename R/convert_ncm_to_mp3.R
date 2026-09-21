@@ -101,15 +101,50 @@ setMethod("convert_one", signature(converter = "NcmdumpCliConverter"),
     dir.create(dirname(mp3_path), recursive = TRUE, showWarnings = FALSE)
     tmp_dir <- file.path(dirname(mp3_path), "_tmp_ncmdump")
     dir.create(tmp_dir, showWarnings = FALSE, recursive = TRUE)
-    on.exit({
-      # ncmdump writes into tmp_dir; clean whatever it left behind.
-      leftovers <- list.files(tmp_dir, full.names = TRUE)
-      if (length(leftovers)) file.remove(leftovers)
-      if (dir.exists(tmp_dir) && length(list.files(tmp_dir)) == 0) unlink(tmp_dir)
-    }, add = TRUE)
+    cleanup <- function() {
+      # Remove leftover mp3 + bat files. Use Sys.glob, not list.files:
+      # on Windows + R 4.6.x list.files drops files containing a comma.
+      leftovers <- c(Sys.glob(file.path(tmp_dir, "*.mp3")),
+                     Sys.glob(file.path(tmp_dir, "*.bat")))
+      for (lf in leftovers) {
+        try(file.remove(lf), silent = TRUE)
+      }
+      if (dir.exists(tmp_dir)) try(unlink(tmp_dir, recursive = FALSE), silent = TRUE)
+    }
+    on.exit(cleanup, add = TRUE)
 
-    args <- c(shQuote(ncm_path), "-o", shQuote(tmp_dir))
-    out <- system2(converter@exe_path, args = args, stdout = TRUE, stderr = TRUE)
+    # ncmdump (taurusxin/ncmdump 1.5.x) uses cxxopts, which is sensitive to
+    # argument order: file arguments MUST come before the -o flag. We shQuote()
+    # the paths so that spaces / commas survive the shell. We deliberately do
+    # NOT add a `--` separator because cxxopts in this version treats `--`
+    # itself as a positional argument (file).
+    #
+    # Encoding workaround: on Chinese Windows, R's `system2()` chokes on
+    # non-ASCII file names ("unable to translate ... to native encoding").
+    # The cleanest workaround is to write a one-line .bat shim that contains
+    # the command in the OEM/ANSI codepage Windows expects. Encoding the bat
+    # file in the system native codepage lets cmd.exe parse it correctly.
+    bat_path <- tempfile(pattern = "ncmdump_", tmpdir = tmp_dir, fileext = ".bat")
+    # Resolve to absolute Windows paths
+    ncm_abs  <- normalizePath(ncm_path, mustWork = TRUE)
+    tmp_abs  <- normalizePath(tmp_dir,  mustWork = TRUE)
+    # Encode the .bat file using the system native codepage so cmd.exe
+    # parses Chinese filenames. Sys.getlocale() returns the R-level locale;
+    # the Windows ANSI codepage is usually "native.enc" on R 4.x.
+    native_enc <- "native.enc"
+    cmd_line <- sprintf('"%s" "%s" -o "%s"\r\n',
+                        normalizePath(converter@exe_path, mustWork = TRUE),
+                        ncm_abs, tmp_abs)
+    con <- file(bat_path, open = "wb", encoding = native_enc)
+    on.exit(try(close(con), silent = TRUE), add = TRUE)
+    writeBin(charToRaw(enc2utf8(cmd_line)), con)   # write as raw bytes
+    close(con)
+    on.exit()  # we've closed the file explicitly
+
+    # Now invoke cmd.exe on the bat file. We use shell() (not system2) so the
+    # command itself stays in pure ASCII.
+    bat_abs <- normalizePath(bat_path, mustWork = TRUE)
+    out <- shell(sprintf('cmd.exe /c ""%s""', bat_abs), intern = TRUE, mustWork = FALSE)
     code <- attr(out, "status")
     if (is.null(code)) code <- 0L
     if (code != 0L) {
@@ -117,7 +152,13 @@ setMethod("convert_one", signature(converter = "NcmdumpCliConverter"),
     }
     produced <- file.path(tmp_dir, paste0(tools::file_path_sans_ext(basename(ncm_path)), ".mp3"))
     if (!file.exists(produced)) {
-      stop("ncmdump succeeded but expected mp3 not found: ", produced)
+      # Try Sys.glob as a fallback for case sensitivity or codepage issues
+      cands <- Sys.glob(file.path(tmp_dir, "*.mp3"))
+      if (length(cands) == 1L) {
+        produced <- cands[1]
+      } else {
+        stop("ncmdump succeeded but expected mp3 not found: ", produced)
+      }
     }
     file.rename(produced, mp3_path)
   }
@@ -166,7 +207,9 @@ collect_jobs <- function(src_dir, dst_dir) {
     log_warn("src dir does not exist: ", src_dir)
     return(list())
   }
-  ncm_files <- list.files(src_dir, pattern = "\\.ncm$", full.names = TRUE)
+  # Use Sys.glob, NOT list.files(pattern=...): on Windows + R 4.6.x the latter
+  # silently drops files whose names contain a comma (e.g. "Gorillaz,De La Soul").
+  ncm_files <- Sys.glob(file.path(src_dir, "*.ncm"))
   jobs <- list()
   for (ncm in ncm_files) {
     base <- tools::file_path_sans_ext(basename(ncm))

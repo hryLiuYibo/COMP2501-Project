@@ -67,15 +67,35 @@ log_err  <- function(...) log_msg("ERROR", ...)
 # ---------------------------------------------------------------------------
 
 #' Read one mp3 into a tuneR Wave object, downmixed to mono + resampled.
-read_mp3_mono <- function(path, target_sr = 22050L) {
+#'
+#' `max_seconds` (default 60) truncates the wave to the first N seconds. The
+#' pipeline only needs enough audio to estimate global descriptors; a full
+#' 4-minute track makes `seewave::timer` take minutes per song. 60 seconds is
+#' a good compromise: long enough to capture the song's main section, short
+#' enough that the batch finishes in seconds.
+read_mp3_mono <- function(path, target_sr = 22050, max_seconds = 60) {
   w <- tuneR::readMP3(path)
-  # Mono mixdown
+  # Always mono mixdown FIRST, then truncate. This way the truncation works
+  # on a single-channel wave and we avoid the "channels must have same length"
+  # validation error that stereo + truncate triggers.
   if (w@stereo) {
     w <- tuneR::mono(w, which = "both")
   }
-  # Resample to a fixed SR to keep MFCC dimensions stable across songs
+  # Now truncate (max_seconds).
+  if (!is.null(max_seconds) && max_seconds > 0) {
+    max_samples <- as.integer(target_sr * max_seconds)
+    if (length(w@left) > max_samples) {
+      w@left <- w@left[seq_len(max_samples)]
+    }
+  }
+  # Resample to a fixed SR to keep MFCC dimensions stable across songs.
+  # NOTE: we use tuneR::downsample rather than seewave::resamp because the
+  # latter (2.2.4) requires a positional `g` argument and silently raises
+  # "argument g is missing" when called with f=. It's also tied to the
+  # WaveGeneral class, which is stricter than what we want for a quick
+  # mono resample. downsample() is the simpler, well-tested choice.
   if (w@samp.rate != target_sr) {
-    w <- seewave::resamp(w, f = target_sr, output = "Wave")
+    w <- tuneR::downsample(w, target_sr)
   }
   w
 }
@@ -187,10 +207,19 @@ compute_features <- function(w, n_mfcc = 13L) {
   }
 
   # --- Tempo (approximate) ---
-  tempo <- tryCatch(
-    as.numeric(seewave::timer(v, f = sr, threshold = 5)),
-    error = function(e) NA_real_
-  )
+  # seewave::timer returns a list with elements $s (envelope), $p (peaks),
+  # $r (BPM, the number we want), $s.start, $s.end, $first. We extract $r and
+  # fall back to NA when it's missing or NA.
+  tempo <- tryCatch({
+    t <- seewave::timer(v, f = sr, plot = FALSE)
+    if (is.list(t) && !is.null(t$r) && length(t$r) >= 1L) {
+      as.numeric(t$r[1])
+    } else if (is.numeric(t)) {
+      as.numeric(t[1])
+    } else {
+      NA_real_
+    }
+  }, error = function(e) NA_real_)
 
   # --- Zero-crossing rate ---
   zcr <- tryCatch(
@@ -206,6 +235,14 @@ compute_features <- function(w, n_mfcc = 13L) {
 # ---------------------------------------------------------------------------
 
 #' Build (song_id -> mp3_path) from a catalog JSON file plus an mp3 directory.
+#'
+#' Each catalog entry may carry an mp3 filename of either shape:
+#'   * numeric stem (e.g. "3342319503.mp3")  -> song_id = "3342319503"
+#'   * human-readable stem (e.g. "ilem - 白鸟过河滩.mp3") -> song_id = NA,
+#'     and the catalog key is treated as the display name.
+#'
+#' Returns a data.frame with columns (song_id, mp3_path, display_name) so the
+#' analysis layer can still group / filter, even when real song_ids are missing.
 build_jobs <- function(catalog_path, mp3_dir) {
   if (!file.exists(catalog_path)) {
     stop("catalog not found: ", catalog_path)
@@ -214,15 +251,30 @@ build_jobs <- function(catalog_path, mp3_dir) {
     stop("mp3 dir not found: ", mp3_dir)
   }
   cat <- fromJSON(catalog_path, simplifyVector = FALSE)
-  jobs <- list()
-  for (sid_str in names(cat)) {
-    sid <- as.integer(sid_str)
-    mp3 <- file.path(mp3_dir, paste0(sid, ".mp3"))
-    if (file.exists(mp3)) {
-      jobs[[length(jobs) + 1L]] <- list(song_id = sid, mp3 = mp3)
+  rows <- list()
+  for (key in names(cat)) {
+    e <- cat[[key]]
+    mp3_file <- e$mp3_file %||% paste0(key, ".mp3")
+    mp3_path <- file.path(mp3_dir, mp3_file)
+    if (!file.exists(mp3_path)) {
+      # Skip silently; the caller logs progress.
+      next
     }
+    # Use the catalog key as the row identifier when song_id is unknown.
+    sid <- e$song_id %||% NA_character_
+    if (is.na(sid) || !nzchar(sid)) sid <- NA_character_
+    rows[[length(rows) + 1L]] <- data.frame(
+      song_id      = sid,
+      catalog_key  = key,
+      mp3_path     = mp3_path,
+      display_name = if (!is.null(e$name) && nzchar(e$name)) e$name else key,
+      stringsAsFactors = FALSE
+    )
   }
-  jobs
+  if (length(rows) == 0L) {
+    stop("no catalog entry matched an mp3 file in ", mp3_dir)
+  }
+  do.call(rbind, rows)
 }
 
 # ---------------------------------------------------------------------------
@@ -239,7 +291,11 @@ save_outputs <- function(results, failures, out_dir) {
   }))
   if (file.exists(feat_path)) {
     old <- read.csv(feat_path, stringsAsFactors = FALSE)
-    ok_df <- rbind(old, ok_df[!old$song_id %in% ok_df$song_id, ])
+    if (ncol(old) == ncol(ok_df) && nrow(old) > 0L) {
+      ok_df <- rbind(old, ok_df[!old$song_id %in% ok_df$song_id, ])
+    }
+    # If the existing file has a malformed header (0 columns), skip the merge
+    # and overwrite with the freshly computed rows.
   }
   write.csv(ok_df, feat_path, row.names = FALSE)
 
@@ -248,7 +304,7 @@ save_outputs <- function(results, failures, out_dir) {
       data.frame(song_id = f$song_id, mp3 = f$mp3, reason = f$reason,
                  stringsAsFactors = FALSE)
     }))
-  } else data.frame(song_id = integer(0), mp3 = character(0), reason = character(0))
+  } else data.frame(song_id = character(0), mp3 = character(0), reason = character(0))
   write.csv(fail_df, fail_path, row.names = FALSE)
 
   list(features = feat_path, failures = fail_path,
@@ -284,24 +340,31 @@ main <- function(argv = NULL) {
            " n_mfcc=", args$n_mfcc)
 
   jobs <- build_jobs(args$catalog, args$src)
-  log_info("found ", length(jobs), " mp3 files")
+  log_info("found ", nrow(jobs), " mp3 files")
 
   results  <- list()
   failures <- list()
-  for (j in seq_along(jobs)) {
-    sj <- jobs[[j]]
-    log_info("[", j, "/", length(jobs), "] ", sj$mp3)
+  for (j in seq_len(nrow(jobs))) {
+    sj <- jobs[j, ]
+    log_info("[", j, "/", nrow(jobs), "] ", sj$mp3_path)
     feats <- tryCatch(
-      compute_features(read_mp3_mono(sj$mp3), n_mfcc = args$n_mfcc),
+      compute_features(read_mp3_mono(sj$mp3_path), n_mfcc = args$n_mfcc),
       error = function(e) {
         failures[[length(failures) + 1L]] <<- list(
-          song_id = sj$song_id, mp3 = sj$mp3, reason = conditionMessage(e)
+          song_id = if (is.na(sj$song_id)) sj$catalog_key else sj$song_id,
+          mp3     = sj$mp3_path,
+          reason  = conditionMessage(e)
         )
         NULL
       }
     )
     if (!is.null(feats)) {
-      results[[length(results) + 1L]] <- list(song_id = sj$song_id, features = feats)
+      row_key <- if (is.na(sj$song_id)) sj$catalog_key else sj$song_id
+      results[[length(results) + 1L]] <- list(
+        song_id     = row_key,
+        display_name = sj$display_name,
+        features    = feats
+      )
     }
   }
 
