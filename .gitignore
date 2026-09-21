@@ -14,7 +14,7 @@ $RECYCLE.BIN/
 # Linux
 *~
 .fuse_hidden*
-.Trash-*
+.Trash-*/
 
 # ---------- Editors / IDEs ----------
 # Vim
@@ -35,38 +35,35 @@ $RECYCLE.BIN/
 # Personal notes vault is kept out of the project repo entirely.
 .obsidian/
 
+# ---------- R session artifacts ----------
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Rproj.user/
+.Renviron
+*.utf8.md
+*.knit.md
+Rplots.pdf
+Rplots.png
+
+# knitr / R Markdown intermediate cache
+*.R
+!R/*.R
+!R/**/*.R
+.cache/
+/*_cache/
+/*_files/
+
+# R package build artifacts (only relevant if we ever build a local pkg)
+src/*.o
+src/*.so
+src/*.dll
+
 # ---------- Common build / language artifacts ----------
-# Node / JS / TS
-node_modules/
-dist/
-build/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.env
-.env.local
-.env.*.local
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-venv/
-.venv/
-env/
-.env/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-
-# C / C++
+# C / C++ object files / binaries
 *.o
 *.obj
-*.exe
 *.out
 *.app
 
@@ -81,21 +78,22 @@ build/
 *.tmp
 *.bak
 *.swp
+*.log
 
-# ---------- Project: music pipeline ----------
-# Audio files are temporary and must NOT enter git.
+# ---------- Project: music pipeline (audio stays OUT of git) ----------
 data/ncm/
 data/mp3/
 data/raw/weekly_top100/
 
-# Audio preprocessing caches
+# Audio preprocessing caches (never commit audio in any format)
 *.wav
 *.flac
 *.m4a
 *.aac
 *.ogg
 
-# Embedding model weights (downloaded separately, large)
+# Model weights / embedding-model caches (no Python embedder in this project
+# anymore, but keep the rule in case a future contributor adds one)
 data/embeddings/weights/
 data/embeddings/cache/
 *.onnx
@@ -104,11 +102,17 @@ data/embeddings/cache/
 *.bin
 *.h5
 
-# NeteaseCloudMusicApi local backend
-data-pipeline/api/
-data-pipeline/node_modules/
+# Native helper binaries (ncmdump.exe, etc.). We do NOT commit the decoder.
+# Put ncmdump.exe somewhere outside the repo (e.g. ~/tools/ncmdump.exe) and
+# point the converter at it with --exe.
+*.exe
+!tools/.gitkeep
 
-# Allow-list: keep small derived artifacts even though parent dir is ignored
-!data/embeddings/song_vectors.csv
-!data/embeddings/song_metadata.csv
+# ---------- Allow-list ----------
+# A handful of small derived artifacts MUST be committed even though their
+# parent directories are ignored. Keep these explicit so we never accidentally
+# commit an audio file via a typo.
+!data/embeddings/song_features.csv
+!data/embeddings/song_features_failures.csv
+!data/embeddings/all_snapshots.rds
 !data/raw/songs_catalog.json

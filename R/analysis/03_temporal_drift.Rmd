@@ -1,0 +1,48 @@
+---
+title: "03 — Temporal drift analysis"
+author: ""
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.width = 8, fig.height = 5)
+```
+
+# 03 — Temporal drift
+
+The headline question: did the *centre of mass* of "what NetEase listeners
+are into" move between 2020 and 2025, and if so, along which dimension?
+
+```{r paths}
+ROOT    <- normalizePath(file.path(dirname(knitr::current_input()), "..", ".."), mustWork = FALSE)
+FEA_FN  <- file.path(ROOT, "data", "embeddings", "song_features.csv")
+SNAPS_RDS <- file.path(ROOT, "data", "embeddings", "all_snapshots.rds")
+```
+
+## Yearly centroid + drift
+
+```{r centroid, eval=FALSE}
+# snaps <- readRDS(SNAPS_RDS)            # week, rank, song_id, year, ...
+# fea   <- read.csv(FEA_FN)              # song_id, mfcc_1, ..., chroma_*, ...
+# m <- snaps |> dplyr::select(year = lubridate::year(as.Date(substr(week,1,10))),
+#                              song_id) |>
+#          dplyr::inner_join(fea, by = "song_id")
+# centroid <- m |> dplyr::group_by(year) |>
+#             dplyr::summarise(dplyr::across(-song_id, mean))
+# centroid  # show the table
+```
+
+## Drift visualised
+
+```{r drift-plot, eval=FALSE}
+# drift <- as.matrix(centroid[, -1])
+# plot(centroid$year, drift[, 1], type = "b",
+#      xlab = "year", ylab = "MFCC_1 centroid",
+#      main = "First MFCC component over time")
+```

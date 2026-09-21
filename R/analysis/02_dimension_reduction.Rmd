@@ -1,0 +1,49 @@
+---
+title: "02 — Dimension reduction (PCA + UMAP)"
+author: ""
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.width = 8, fig.height = 5)
+```
+
+# 02 — Dimension reduction
+
+Reads `data/embeddings/song_features.csv`, joins with per-snapshot ranks, and
+produces:
+
+- PCA scree plot + biplot (PC1 vs PC2, coloured by release year)
+- UMAP 2D embedding of all unique songs, animated by year
+- Variance explained by year as a time series (drift signal)
+
+```{r paths}
+ROOT    <- normalizePath(file.path(dirname(knitr::current_input()), "..", ".."), mustWork = FALSE)
+FEA_FN  <- file.path(ROOT, "data", "embeddings", "song_features.csv")
+META_FN <- file.path(ROOT, "data", "embeddings", "song_metadata.csv")
+```
+
+```{r load-features, eval=FALSE}
+# fea <- read.csv(FEA_FN)
+# meta <- read.csv(META_FN)
+# mat <- as.matrix(fea[, setdiff(names(fea), "song_id")])
+```
+
+## PCA
+
+```{r pca, eval=FALSE}
+# pca <- prcomp(scale(mat), center = TRUE, scale. = TRUE)
+# screeplot(pca, type = "lines", main = "PCA scree")
+```
+
+## UMAP
+
+```{r umap, eval=FALSE}
+# uwot::umap(mat, n_neighbors = 15, min_dist = 0.1)
+```
