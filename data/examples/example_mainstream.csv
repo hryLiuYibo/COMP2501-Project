@@ -1,0 +1,16 @@
+# HEADER (commented, NOT parsed by the tool):
+# This example demonstrates a user whose taste sits at the heart of QQ Music
+# mainstream: Jay Chou / JJ Lin classics, 7-year persistent hits.
+# All IDs are QQ-internal song_ids. We expect the personal-offset tool
+# to report small Mahalanobis distance and a category distribution that
+# matches QQ 137K almost exactly.
+#
+# Schema: see R/18_personal_offset.R documentation.
+#! platform: qq
+#! description: Example 1 -- mainstream Chinese pop. Expected: small offset.
+song_name,artist,genre,qq_id
+晴天,周杰伦,pop,97773
+青花瓷,周杰伦,pop,410316
+兰亭序,周杰伦,pop,449201
+修炼爱情,林俊杰,pop,5063375
+江南,林俊杰,pop,9063002

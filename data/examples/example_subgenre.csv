@@ -1,0 +1,16 @@
+# HEADER (commented, NOT parsed by the tool):
+# This example demonstrates a user whose taste leans into the rap / EDM
+# sub-genre charts -- a clear niche vs the QQ 137K mainstream.
+# All IDs are QQ-internal song_ids. We expect the personal-offset tool
+# to report large Mahalanobis distance and a category distribution
+# skewed toward rap/EDM.
+#
+# Schema: see R/18_personal_offset.R documentation.
+#! platform: qq
+#! description: Example 2 -- rap/EDM niche. Expected: large offset.
+song_name,artist,genre,qq_id
+不用去猜,Jony J,rap,360301397
+OK了,KnowKnow/陈泽,rap,485131906
+雪 Distance,Capper/罗言RollFlash,rap,398282803
+End of The World,Alan Walker/Anne Gudrun,edm,495315551
+春雪,周深/Terry Zhong,edm,478019569
