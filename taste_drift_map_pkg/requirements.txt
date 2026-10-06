@@ -1,0 +1,28 @@
+# Python dependencies for the chart-metadata + audio-embedding pipeline.
+#
+# Install:  pip install -r requirements.txt
+#
+# Note: audio vectorization (build_vectors.py) needs PyTorch. On a Blackwell-class
+# GPU (e.g. RTX 50xx) you MUST install a CUDA 12.8+ build:
+#     pip install torch --index-url https://download.pytorch.org/whl/cu128
+# Plain `pip install torch` will not run on sm_120. CPU-only installs also work,
+# just slower.
+
+# --- data handling ---
+numpy>=1.26
+pandas>=2.0
+
+# --- audio / signal processing ---
+soundfile>=0.12          # read/write audio
+scipy>=1.11              # resampling, STFT, Mel filterbank
+librosa>=0.10            # Mel spectrogram + windowing utilities
+
+# --- figures (Python side; the deck figures are produced by R) ---
+matplotlib>=3.8
+
+# --- deck assembly ---
+python-pptx>=0.6.23      # build_pptx_en.py, build_merged.py
+Pillow>=10.0             # image sizing for the deck
+
+# --- optional: QA export of deck slides to PNG (Windows + PowerPoint only) ---
+# pywin32>=306

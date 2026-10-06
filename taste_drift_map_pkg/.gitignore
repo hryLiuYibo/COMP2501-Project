@@ -1,0 +1,38 @@
+# ---- raw data: never commit (copyright / large) ----
+data/raw/
+data/raw/**
+
+# ---- working files produced by scripts/ ----
+data/interim/
+data/interim/**
+!data/interim/.gitkeep
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# ---- R ----
+.Rhistory
+.RData
+.Rproj.user/
+renv/library/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+~$*.pptx
+~$*.docx
+
+# ---- keep these committed (regenerated but small & reviewable) ----
+!figures/
+!figures/*.png
+!r_project/data/
+!r_project/data/*.csv
+!r_project/data/*.txt

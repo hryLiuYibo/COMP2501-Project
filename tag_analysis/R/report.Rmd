@@ -1,0 +1,476 @@
+---
+title: "The Sound of a Decade: Multi-Platform Chart-History Analysis of Chinese Popular Music, 2018-2024"
+subtitle: "HKU COMP2501 Project Report"
+author: "[your name]"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    code_folding: show
+    theme: flatly
+    df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, message = FALSE, warning = FALSE,
+  fig.width = 8, fig.height = 4.5, dpi = 110,
+  out.width = "100%"
+)
+ROOT <- normalizePath("..")
+suppressPackageStartupMessages({
+  library(readr); library(dplyr); library(tidyr); library(ggplot2)
+})
+```
+
+# 1. Introduction
+
+We track whether QQ Music's seven public toplists -- Hot Songs
+(热歌榜), Online Songs (网络歌曲榜), Mainland (内地榜), Rap (说唱榜),
+EDM (电音榜), Guofeng (国风热歌榜), and Douyin Hit (抖音热歌榜) --
+shifted in a measurable way across 2018-2024. We use only the data
+that QQ's public musicu.fcg endpoint exposes with no login: chart
+metadata, ranks, week-on-chart counts. **No audio, no transcripts, no
+play-counts per song**, because those endpoints now require login
+(`code=500003`).
+
+The original proposal listed "2015-2025". After probing the API we
+narrow the actual data window to **2018 week 30 - 2024 week 52** (the
+`period` parameter is silently clamped outside this range).
+
+# 2. Data
+
+```{r load}
+song_year_all  <- read_csv(file.path(ROOT, "data/interim/song_year_all.csv"),
+                            show_col_types = FALSE)
+raw            <- read_csv(file.path(ROOT, "data/interim/qq_raw_long.csv"),
+                            show_col_types = FALSE)
+topid_overview <- read_csv(file.path(ROOT, "data/interim/inter_topid_correlation.csv"),
+                            show_col_types = FALSE)
+```
+
+## 2.1 Toplists and coverage
+
+Seven QQ toplists are pulled, each with weekly issues from 2018W30
+to 2024W52 (some start later because of topId-specific data
+availability):
+
+| topId | Title | Issues | Unique songs | Genre tag |
+|---|---|---|---|---|
+| 26 | 热歌榜 | 202 | 1942 | - |
+| 28 | 网络歌曲榜 | 331 | 9626 | - |
+| 5 | 内地榜 | 288 | 10928 | - |
+| 58 | 说唱榜 | 195 | 3125 | rap |
+| 57 | 电音榜 | 191 | 2878 | edm |
+| 65 | 国风热歌榜 | 194 | 1303 | guofeng |
+| 60 | 抖音热歌榜 | 167 | 1729 | - |
+
+Total ~137,000 song-week rows after collapsing the long sheet into
+`song_year_all`.
+
+```{r coverage}
+cov <- raw %>%
+  group_by(top_title, year) %>%
+  summarise(weeks_recorded = n_distinct(period),
+            songs = n_distinct(song_id),
+            .groups = "drop")
+knitr::kable(head(cov, 12))
+```
+
+## 2.2 Per-song-per-year summary
+
+```{r songyear_summary}
+knitr::kable(head(song_year_all, 8))
+```
+
+# 3. Cross-chart correlation
+
+```{r align, out.width="80%"}
+knitr::include_graphics(file.path(ROOT, "data/interim/topid_overview.png"))
+```
+
+```{r align_view}
+wide_corr <- topid_overview %>%
+  pivot_wider(names_from = Var2, values_from = cor)
+knitr::kable(wide_corr, digits = 2,
+             caption = "Cross-chart correlation of yearly mean log(1+weeks)")
+```
+
+Key reading: **0.92** between Hot Songs (热歌榜) and Online Songs
+(网络歌曲榜); **0.72** between Hot Songs and Guofeng (国风热歌榜);
+**-0.89** between Hot Songs and Rap (说唱榜). Rap and Douyin Hit
+strongly anti-correlate, indicating separate ecosystems.
+
+# 4. Yearly drift (chart-history features only)
+
+We do **not** run PCA / PLS / t-SNE on audio embeddings in this
+draft (audio features are out-of-scope per user request). What we
+*can* extract from chart metadata alone is the per-year mean of
+two simple aggregates:
+
+- `avg_weeks`: mean `weeks_total` per song per year.
+- `avg_peak`: mean `peak_rank_min` per song per year.
+
+These are deliberately low-dimensional. They answer the questions
+"did songs stay longer on chart?" and "did songs reach better
+peaks?". They do **not** answer "did the audio character of songs
+drift?" — that would require MERT / librosa features.
+
+```{r yearly_summary}
+yearly <- song_year_all %>%
+  group_by(year) %>%
+  summarise(n = n_distinct(song_id),
+            avg_weeks = mean(weeks_total, na.rm = TRUE),
+            avg_peak  = mean(peak_rank_min, na.rm = TRUE),
+            .groups = "drop") %>%
+  arrange(year)
+knitr::kable(yearly, digits = 2,
+             caption = "Yearly chart-history summary (chart-metadata features only, NOT audio features)")
+```
+
+```{r yearly_plots, out.width="90%"}
+knitr::include_graphics(file.path(ROOT, "data/interim/year_avg_weeks.png"))
+knitr::include_graphics(file.path(ROOT, "data/interim/year_avg_peak.png"))
+```
+
+# 5. Flow summary
+
+```{r flow}
+song_year_all_with_flags <- read_csv(file.path(ROOT,
+  "data/interim/song_year_all_with_flags.csv"), show_col_types = FALSE)
+flags <- song_year_all_with_flags %>%
+  summarise(live = sum(is_live, na.rm = TRUE),
+            cover = sum(is_cover, na.rm = TRUE),
+            remix = sum(is_remix, na.rm = TRUE),
+            draft = sum(is_draft, na.rm = TRUE)) %>%
+  tidyr::pivot_longer(everything(), names_to = "flag", values_to = "n_rows")
+knitr::kable(flags,
+             caption = "Songs (year rows) carrying live/cover/remix/draft markers")
+```
+
+## 5.1 Canonical version
+
+We strip cover/live/remix/acoustic/practice markers from song titles
+to form a canonical `(year, canonical_key, singer)` row, and keep the
+highest-weeks version per canonical key. Output:
+`data/interim/song_year_canonical.csv`.
+
+# 6. Detected changepoints
+
+```{r cps}
+cps <- read_csv(file.path(ROOT, "data/interim/changepoints.csv"),
+                show_col_types = FALSE)
+knitr::kable(cps)
+```
+
+BIC selects 3 changepoints, permutation p-value < 0.001: **2019,
+2020, 2022**.
+
+# 7. Most average / most outlier per year
+
+```{r avg}
+avg <- read_csv(file.path(ROOT, "data/interim/year_top5_most_average.csv"),
+                show_col_types = FALSE)
+knitr::kable(avg %>% select(year, song_title, singer_name, d),
+             caption = "Most average song per year (top 5 per year, Euclidean distance)")
+```
+
+```{r outlier}
+out <- read_csv(file.path(ROOT, "data/interim/year_top5_most_outlier.csv"),
+                show_col_types = FALSE)
+knitr::kable(out %>% select(year, song_title, singer_name, d),
+             caption = "Most outlier song per year (top 5 per year, Euclidean distance)")
+```
+
+## 7.1 LOF-based outlier detection (alternative)
+
+Euclidean distance from the year-centroid catches songs that are
+globally distant. **Local Outlier Factor** catches songs that are
+locally atypical within their year — i.e. a song that is not
+necessarily far from the year centroid, but is less dense than its
+nearest neighbours.
+
+```{r lof}
+lof_out <- read_csv(file.path(ROOT, "data/interim/year_top5_most_outlier_lof.csv"),
+                    show_col_types = FALSE)
+knitr::kable(lof_out %>% select(year, song_title, singer_name, lof),
+             caption = "Most outlier song per year by LOF (Local Outlier Factor)")
+```
+
+```{r lof_compare}
+lof_compare <- read_csv(file.path(ROOT, "data/interim/lof_vs_euclidean_overlap.csv"),
+                        show_col_types = FALSE)
+knitr::kable(lof_compare,
+             caption = "LOF-top5 vs Euclidean-top5: how many songs both methods agree on per year")
+```
+
+The two methods rarely agree (typically 0-1 of 5 songs per year).
+LOF surfaces **short-cycle hits** that briefly reached high rank
+and disappeared (e.g. 2018: 叶炫清《说谎的人》peak rank 6 in 1
+week). Euclidean surfaces songs that are globally unusual in
+shape (e.g. an old classic with high weeks_total but mid-rank).
+We report both so the reviewer can pick the definition of
+"atypical" that fits their interest.
+
+# 8. Genre drift (rap / EDM / Guofeng)
+
+A song is tagged with a genre iff it appeared on that chart at least
+once during the year. We compute year-on-year share of songs carrying
+each tag.
+
+```{r genre_drift, out.width="90%"}
+knitr::include_graphics(file.path(ROOT, "data/interim/genre_drift.png"))
+```
+
+```{r genre_top}
+top_in_genre <- read_csv(file.path(ROOT, "data/interim/top_in_each_genre.csv"),
+                         show_col_types = FALSE)
+knitr::kable(top_in_genre,
+             caption = "Top 5 most-week-total songs per inferred genre")
+```
+
+# 9. Cross-platform validation (timeline + QQ changepoints)
+
+The previous overlap-based check (40.5 % between QQ and NetEase
+current snapshot) does **not** validate QQ conclusions: overlap
+percentages are dominated by licensing and regional catalogue
+differences, not by listener behaviour. We replace it with a
+**timeline-based cross-platform check**.
+
+## 9.1 Deep dive: features extracted from QQ data during the COVID-Q1 2020 window
+
+We focus the rest of the report on the 2020 changepoint, because
+the QQ data has rich week-by-week resolution there. We compare
+four regimes:
+
+| Regime | Definition | Weeks in data |
+|---|---|---|
+| `pre_covid`     | 2018W30 .. 2019W52              | 73 |
+| `covid_q1`      | 2020W04 .. 2020W17 (Wuhan lockdown + nationwide stay-at-home) | 14 |
+| `covid_recovery` | 2020W18 .. 2020W26               | 9 |
+| `post_covid`    | 2020W27 .. 2020W52              | 26 |
+
+```{r covid_features}
+covid <- read_csv(file.path(ROOT, "data/interim/covid_period_features.csv"),
+                  show_col_types = FALSE)
+knitr::kable(covid, digits = 1,
+             caption = "QQ chart-history features extracted per regime (from R/15_covid_qq_features.R)")
+```
+
+```{r covid_plot, out.width="90%"}
+knitr::include_graphics(file.path(ROOT, "data/interim/covid_period_qq_features.png"))
+```
+
+**Three observations from QQ data alone**:
+
+1. **During COVID-Q1 2020, both `unique_songs_per_week` and
+   `new_songs_per_week` drop to their lowest levels across the
+   2018-2024 window** (240 / 61.5 vs the pre-COVID baseline of
+   280 / 84.7 and the post-COVID value of 440 / 120). The Chinese
+   music industry's new-release pipeline effectively stalled
+   during the lockdown.
+2. **After the lockdown ends** (recovery phase 2020W18-W26),
+   values snap back to the pre-COVID baseline. No structural
+   break yet.
+3. **The structural break is `post_covid` (2020W27+)** — chart
+   volume jumps to 440 unique songs per week and 120 new songs
+   per week, **1.5x the pre-COVID level**. The 2020 changepoint
+   is therefore best interpreted as "the *post*-lockdown
+   acceleration" — the same industry that had been paused during
+   the lockdown flooded the platform from mid-2020 onward.
+
+## 9.1.1 Why these features, and not others
+
+We do **not** attempt a more granular sentiment- or genre-level
+analysis of the COVID window. Such analysis would require audio
+features (MFCC, chroma, etc.) or lyrics — both explicitly
+out-of-scope in this draft per user request. What we *can* extract
+from chart metadata alone is **release volume** and **chart
+churn**, and those two features turn out to be the strongest
+COVID-period signals.
+
+## 9.1.2 What this analysis does NOT cover
+
+Three follow-up questions would tighten the QQ-Covid story but
+require additional data sources:
+
+1. **Genre mix during COVID-Q1**: did rap/EDM/guofeng respond
+   differently to the lockdown? Answerable from our genre-tagged
+   charts; would take ~30 minutes more.
+2. **QQ platform-specific vs. national**: did NetEase / Kugou
+   also drop their per-week unique-song count during 2020-Q1?
+   Answerable only if a NetEase historical weekly endpoint
+   becomes available; currently not.
+3. **Did the post-COVID surge consist mostly of new songs or
+   also "rediscovered old songs"?** Answerable from our
+   publish-year column on each song: we can classify each
+   week's entry as "new release" vs "back-catalog".
+
+## 9.2 Cross-region patterns beyond song-overlap
+
+Song-overlap is dominated by licensing and regional catalogue
+differences (Section 9.1 of the cross-platform notebook — `R/17`).
+We instead ask **structural** questions on the same snapshots:
+
+1. What fraction of the top-N are songs released in 2018 or earlier
+   (the "old catalogue" share)?
+2. How concentrated is the top-N among a small number of artists
+   (the Gini coefficient on per-artist rank counts)?
+
+These two metrics are **directly related to QQ-derived claims**:
+
+- The QQ chart-history shows **songs released years ago still chart**
+  (e.g. 张信哲《过火》1995 in 2018 chart). This is consistent
+  with "QQ users are exposed to old catalogue" — but is this a
+  Chinese-market pattern, or a QQ-platform artefact?
+- QQ's 2022 changepoint splits charts into a Douyin-driven cluster
+  and a QQ-algorithm cluster. Does that correspond to a
+  star-concentration shift on QQ, or is star-concentration a
+  Chinese-market pattern?
+
+```{r cross_region_metrics}
+cr <- read_csv(file.path(ROOT, "data/interim/cross_region_patterns.csv"),
+               show_col_types = FALSE)
+knitr::kable(cr, digits = 1,
+             caption = "Cross-region structural metrics (R/17)")
+```
+
+```{r cross_region_share_old, out.width="80%"}
+knitr::include_graphics(file.path(ROOT, "data/interim/cross_region_share_old.png"))
+```
+
+```{r cross_region_artist_gini, out.width="80%"}
+knitr::include_graphics(file.path(ROOT, "data/interim/cross_region_artist_gini.png"))
+```
+
+```{r cross_region_top3_share, out.width="80%"}
+knitr::include_graphics(file.path(ROOT, "data/interim/cross_region_top3_share.png"))
+```
+
+### 9.2.1 What the cross-region snapshot adds to QQ findings
+
+**Three structural findings, none of which QQ's chart-history alone
+shows**:
+
+1. **"Old catalogue share" is bimodal between platforms, not
+   bimodal between regions.** Apple Music CN has **84 %** of its
+   top-50 released 2018 or earlier (Jay Chou, Sun Yanzi, Liang
+   Jingru fill the slots). QQ has only **18.9 %**. The two are
+   Chinese-language platforms but their catalogue freshness
+   differs by 65 percentage points. The QQ chart-history's
+   "old songs still chart" observation is therefore a
+   **QQ-platform pattern, not a Chinese-market pattern** —
+   Apple Music CN does it much more strongly.
+2. **Star concentration is highest on Apple Music CN (54 %),
+   not on QQ (24.5 %).** This reverses the naive hypothesis
+   ("QQ = star-driven platform because 2022 ecosystem split").
+   The 2022 QQ-platform split was *between* Douyin-driven and
+   QQ-algorithm-driven streams, but **QQ itself is comparatively
+   artist-diverse** within its top 200.
+3. **NetEase is the most artist-diverse (9.1 % top-3 share)**,
+   consistent with NetEase's reputation as the indie /
+   singer-songwriter platform. Apple Music US is intermediate
+   (38 %); Apple Music CN is most concentrated (54 %).
+
+These three findings **complement, not contradict, QQ findings**:
+
+- QQ's 2022 platform-split is about *which chart a song appears
+  on*, not about *which artist dominates*.
+- QQ's "old songs still chart" is real but weaker than the same
+  effect on Apple Music CN.
+- The QQ-vs-NetEase diversity gradient (24.5 % vs 9.1 %) is
+  consistent with QQ's broader mainstream reach and NetEase's
+  indie / live focus.
+
+We do **not** claim these are historical patterns — only that
+the **current** snapshot shows them.
+
+## 9.3 What we did NOT attempt (and why)
+
+Three follow-up questions would tighten the cross-platform
+narrative but require additional data sources:
+
+1. **Weekly-history cross-platform comparison**: did the same
+   "regime transition" appear on NetEase in 2019 / 2020 / 2022?
+   Answerable only if a NetEase historical weekly endpoint becomes
+   available; currently not.
+2. **Per-song play counts**: per-platform listening volume would
+   answer "is QQ more star-driven than Apple Music CN, or is that
+   an artefact of how we measured?". Not available; QQ requires
+   login, Apple Music / Spotify do not expose play-count.
+3. **Genre breakdown**: rap / pop / classical / folk share per
+   platform. QQ's `genre_inferred` covers only rap / edm / guofeng.
+   Apple Music exposes full genre metadata per track; integrating
+   that would deepen the cross-region picture.
+
+# 10. Limitations
+
+1. **Coverage 2018-2024, not 2015-2025.** QQ's public API clamps the
+   `period` parameter outside this window. We probe each year/week
+   pair and keep only those honoured by the server.
+2. **No audio features** (MERT / librosa / Jukemir / CLAP).
+   Out-of-scope per user request. PCA / t-SNE / clustering in this
+   draft operate on chart-history features only, **not audio
+   features**.
+3. **No song-level play counts / no lyrics / no song-detail fields**.
+   All such endpoints now require login (code=500003). Genre is
+   inferred from genre-tagged charts only.
+4. **Cross-platform validation is structural, not historical.**
+   We compare current snapshots of QQ, NetEase, Apple Music CN,
+   and Apple Music US (Section 9.2). Historical weekly cross-
+   platform comparison is **not feasible**: NetEase's API silently
+   ignores any `period` parameter; Apple Music's RSS exposes
+   current only; Spotify Charts' historical API was deprecated
+   in 2024. Kugou, Douyin, Bilibili, and Last.fm all either lack
+   public historical endpoints or require login. See
+   `docs/CROSS_PLATFORM_NOTES.md` for the full feasibility matrix.
+5. **Version normalization is regex on title** (live / cover /
+   remix / acoustic / practice markers). QQ does not expose a clean
+   version field; full version normalization would need logged-in
+   song-detail APIs.
+6. **The 2019/2020/2022 changepoints describe a QQ-platform-
+   conditional trajectory**, not a national-listener trajectory —
+   supported by the 2020-Q1 industry contraction observed in
+   `R/15_covid_qq_features.R` and by Apple Music CN's much
+   stronger "old catalogue" share (Section 9.2).
+
+# 12. Reproducibility
+
+```sh
+# 0. Restore R environment (one-time)
+Rscript -e 'renv::restore()'
+
+# 1. Pull all 7 QQ toplists (cached after first run, ~5 min total)
+for tid in 26 28 5 58 57 65 60; do
+  python3 pipeline/qq_official/fetch_qq_toplist.py --topid $tid --density weekly
+done
+python3 pipeline/qq_official/rebuild_csv_from_cache.py \
+  --topid 26 --topid 28 --topid 5 --topid 58 --topid 57 --topid 65 --topid 60
+
+# 2. Pull QQ current snapshot (for cross-region comparison)
+python3 pipeline/qq_official/fetch_current_snapshot.py
+
+# 3. Pull NetEase + Apple Music current snapshots
+python3 pipeline/netease_official/fetch_current_toplist.py
+python3 pipeline/apple_music_official/fetch_current_charts.py --region cn --region us
+
+# 4. R analysis (full pipeline, ~3 min)
+Rscript R/01_clean.R
+Rscript R/02_yearly_summary.R
+Rscript R/03_umap.R
+Rscript R/04_special_songs.R
+Rscript R/05_changepoint.R
+Rscript R/06_toplist_compare.R
+Rscript R/07_version_normalize.R
+Rscript R/08_topid_overview.R
+Rscript R/09_genre_drift.R
+Rscript R/14_lof_outliers.R
+Rscript R/15_covid_qq_features.R
+Rscript R/17_cross_region_patterns.R
+
+# 5. knit report
+PATH=$HOME/bin:$PATH Rscript -e 'rmarkdown::render("R/report.Rmd")'
+```

@@ -1,0 +1,14 @@
+﻿metric,scope,value,ci_lo,ci_hi,note
+centroid_angle_deg,both,3.9255,,,angle between full-period centroids of the two platforms
+centroid_cosine,both,0.997654,,,
+within_lib_mean_cosine,QQ Music,0.8599,,,mean pairwise cosine among QQ library songs
+within_lib_mean_cosine,NetEase Cloud Music,0.866,,,mean pairwise cosine among NetEase library songs
+same_year_centroid_angle_deg,2024,12.7977,,,n_qq=3 n_ne=10
+single_song_auc,QQ vs NetEase,0.6606,,,Mann-Whitney AUC of per-song margin; 0.5 = indistinguishable
+margin_mean,QQ Music,0.002176,,,
+margin_mean,NetEase Cloud Music,-0.002186,,,
+margin_sd,both,0.008085,,,
+n_records,QQ Music,429,,,
+n_records,NetEase Cloud Music,60,,,
+n_unique_songs,QQ Music,319,,,
+n_unique_songs,NetEase Cloud Music,55,,,

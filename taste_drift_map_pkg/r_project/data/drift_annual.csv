@@ -1,0 +1,13 @@
+﻿platform,year_from,year_to,drift_deg,n_from,n_to
+QQ Music,2018,2019,3.8159,33,68
+QQ Music,2019,2020,2.991,68,53
+QQ Music,2020,2021,2.9373,53,55
+QQ Music,2021,2022,4.6243,55,65
+QQ Music,2022,2023,4.3647,65,58
+QQ Music,2023,2024,10.5894,58,3
+NetEase Cloud Music,2018,2019,21.5624,2,2
+NetEase Cloud Music,2019,2020,15.1712,2,11
+NetEase Cloud Music,2020,2021,7.2104,11,10
+NetEase Cloud Music,2021,2022,9.7145,10,10
+NetEase Cloud Music,2022,2023,8.5088,10,11
+NetEase Cloud Music,2023,2024,9.7646,11,10

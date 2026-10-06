@@ -1,0 +1,29 @@
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Rapp.history
+.Ruserdata
+*.Rproj
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local R libs scratch
+.check_*.R
+
+# NOTE: We DELIBERATELY commit data/raw/ and data/interim/ so a
+# reviewer can reproduce the analysis without re-running the
+# pipeline. data/raw/qq/topId*/<period>.json is the QQ weekly
+# toplist cache (binary JSON, ~28 MB total). data/raw/netease/
+# and data/raw/apple_music/ are current-snapshot CSVs (~1 MB).
+# data/interim/ is the cleaned/derived CSVs and figures (~33 MB).
+# Total ~106 MB, well within GitHub's recommended repo size.

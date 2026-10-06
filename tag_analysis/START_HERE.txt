@@ -1,0 +1,66 @@
+==============================================
+The Sound of a Decade — COMP2501 Project
+==============================================
+
+📍  THIS FOLDER: /Users/johnny/Desktop/COMP2501/sound_of_decade
+
+👀  WHAT TO OPEN FIRST:
+   • R/report.html
+       Double-click in Finder. The full HTML report.
+   • PROPOSAL_QQ_DATA_SECTION.md
+       Drop-in block for your proposal's Section 4 + 5.
+   • docs/data_acquisition_methodology.md
+       One-pager explaining why we use Python for fetching + R for
+       analysis (rebuttal to "must be 100% R").
+   • README.md
+       File-by-file overview of the project.
+
+📂  FOLDER STRUCTURE:
+   R/                  R scripts (01-09) + report.Rmd + report.html
+   pipeline/qq_official/  Python data collectors
+   pipeline/netease_official/  Netease collector (unused in this draft)
+   data/raw/qq/        Raw weekly toplists (CSV + JSON cache)
+   data/interim/       Cleaned CSVs and PNG plots
+   docs/PROJECT_STATUS.md   Progress notes (for handoff)
+
+📊  KEY NUMBERS (already produced):
+   • ~137,000 song-week rows, 2018W30 – 2024W52
+   • 7 QQ toplists: 热歌榜, 网络歌曲榜, 内地榜, 说唱榜, 电音榜, 国风热歌榜, 抖音热歌榜
+   • Changepoint years: 2019, 2020, 2022 (p < 0.001)
+   • Hot ↔ Online chart correlation: 0.92
+   • Hot ↔ Rap chart correlation: -0.89
+
+🔁  TO RE-RUN FROM SCRATCH:
+   # 1. Pull the data (~5 min, cached after first run)
+   for tid in 26 28 5 58 57 65 60; do
+     python3 pipeline/qq_official/fetch_qq_toplist.py --topid $tid --density weekly
+   done
+
+   # 2. Re-derive CSVs from cached JSON (no QQ hit)
+   python3 pipeline/qq_official/rebuild_csv_from_cache.py \
+     --topid 26 --topid 28 --topid 5 --topid 58 --topid 57 --topid 65 --topid 60
+
+   # 3. R analysis (~2 min)
+   Rscript R/01_clean.R
+   Rscript R/02_pca.R
+   Rscript R/03_umap.R
+   Rscript R/04_special_songs.R
+   Rscript R/05_changepoint.R
+   Rscript R/06_toplist_compare.R
+   Rscript R/07_version_normalize.R
+   Rscript R/08_topid_overview.R
+   Rscript R/09_genre_drift.R
+
+   # 4. Render the HTML report
+   PATH=$HOME/bin:$PATH Rscript -e 'rmarkdown::render("R/report.Rmd")'
+   open R/report.html
+
+⚠️  SCOPE NOTES (for the proposal):
+   • Coverage is 2018-2024 (not 2015-2025) — QQ's period parameter
+     is silently clamped outside this range.
+   • Per-song audio features are out of scope by user request.
+   • Per-song detail endpoints (genre, play-count, lyric) require
+     login (QQ code=500003 since 2024+); we use chart-level data only.
+   • Cross-platform validation (NetEase / Kugou / Douyin / Bili /
+     Last.fm) is scaffolded but not run; can be added later.
+

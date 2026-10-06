@@ -1,0 +1,13 @@
+﻿platform,year,n_songs,mean_pairwise_cosine,chinese_title_n,chinese_title_pct,non_chinese_title_n
+QQ Music,2018,33,0.8362,28,73.7,10
+QQ Music,2019,68,0.8691,80,92.0,7
+QQ Music,2020,53,0.8456,56,87.5,8
+QQ Music,2021,55,0.8504,66,89.2,8
+QQ Music,2022,65,0.8759,75,90.4,8
+QQ Music,2023,58,0.8672,66,84.6,12
+QQ Music,2024,3,0.8689,5,100.0,0
+NetEase Cloud Music,2020,11,0.8687,11,100.0,0
+NetEase Cloud Music,2021,10,0.8723,7,70.0,3
+NetEase Cloud Music,2022,10,0.8724,7,53.8,6
+NetEase Cloud Music,2023,11,0.8474,10,83.3,2
+NetEase Cloud Music,2024,10,0.8771,7,70.0,3

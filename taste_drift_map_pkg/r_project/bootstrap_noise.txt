@@ -1,0 +1,9 @@
+2018-2019_boot_shift,4.257
+2019-2020_boot_shift,2.607
+2020-2021_boot_shift,3.101
+2021-2022_boot_shift,3.011
+2022-2023_boot_shift,2.553
+2023-2024_boot_shift,2.755
+2024-2025_boot_shift,NA
+noise_band_lo,2.553
+noise_band_hi,4.257
